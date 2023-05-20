@@ -30,7 +30,7 @@ If multiprocessing is set, the call to generative summarization is stored in a t
 ### Via pip
 
 ```bash
-pip install absum
+pip install gensum
 ```
 
 ### From source
