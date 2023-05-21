@@ -79,7 +79,7 @@ output = augmentor.get_generative_summarization(text)
 | classifier_values | (:obj:`string`, `optional`, defaults to None) | Specific classifier values to augment data for.
 | min_length | (:obj:`int`, `optional`, defaults to 10) | The min length of the sequence to be generated. Between 0 and infinity. Default to 10.
 | max_length | (:obj:`int`, `optional`, defaults to 50) | The max length of the sequence to be generated. Between min_length and infinity. Default to 50.
-| num_samples | (:obj:`int`, `optional`, defaults to 100) | Number of samples to pull from dataframe with specific feature to use in generating new sample with Abstractive Summarization.
+| num_samples | (:obj:`int`, `optional`, defaults to 100) | Number of samples to pull from dataframe with specific feature to use in generating new sample with Generative Summarization.
 | threshold | (:obj:`int`, `optional`, defaults to 3500) | Maximum ceiling for each feature, normally the under-sample max.
 | multiproc | (:obj:`bool`, `optional`, defaults to True) | If set, stores calls to generative summarization in array which is then passed to run_cpu_tasks_in_parallel to allow for increasing performance through multiprocessing.
 | debug | (:obj:`bool`, `optional`, defaults to True) | If set, prints generated summarizations.
