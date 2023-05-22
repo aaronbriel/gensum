@@ -62,12 +62,7 @@ df_augmented = augmentor.gen_sum_augment()
 df_augmented.to_csv(csv.replace('.csv', '-augmented.csv'), encoding='utf-8', index=False)
 ```
 
-Running singular summarization on any chunk of text is simple:
-```
-text = chunk_of_text_to_summarize
-augmentor = Augmentor(min_length=100, max_length=200)
-output = augmentor.get_generative_summarization(text)
-```
+NOTE: The output dataframe contains only the augmented rows.
 
 ## Parameters
 
@@ -79,9 +74,13 @@ output = augmentor.get_generative_summarization(text)
 | classifier_values | (:obj:`string`, `optional`, defaults to None) | Specific classifier values to augment data for.
 | min_length | (:obj:`int`, `optional`, defaults to 10) | The min length of the sequence to be generated. Between 0 and infinity. Default to 10.
 | max_length | (:obj:`int`, `optional`, defaults to 50) | The max length of the sequence to be generated. Between min_length and infinity. Default to 50.
-| num_samples | (:obj:`int`, `optional`, defaults to 100) | Number of samples to pull from dataframe with specific feature to use in generating new sample with Generative Summarization.
-| threshold | (:obj:`int`, `optional`, defaults to 3500) | Maximum ceiling for each feature, normally the under-sample max.
+| num_samples | (:obj:`int`, `optional`, defaults to 20) | Number of samples to pull from dataframe with specific feature to use in generating new sample with Generative Summarization.
+| threshold | (:obj:`int`, `optional`, defaults to mean count for all classifier values) | Maximum ceiling for each feature, normally the under-sample max.
 | multiproc | (:obj:`bool`, `optional`, defaults to True) | If set, stores calls to generative summarization in array which is then passed to run_cpu_tasks_in_parallel to allow for increasing performance through multiprocessing.
+| prompt  | (:obj:`string`, `optional`, defaults to "Create 5 unique, informally written sentences similar to the ones listed here:") | The prompt to use for the generative summarization.
+| llm | (:obj:`string`, `optional`, defaults to 'chatgpt') | The generative LLM to use for summarization.
+| model | (:obj:`string`, `optional`, defaults to 'gpt-3.5-turbo') | The specific model to use.
+| temperature | (:obj:`int`, `optional`, defaults to 0) | Determines the randomness of the generated sequences. Between 0 and 1, where a higher value means the generated sequences will be more random.
 | debug | (:obj:`bool`, `optional`, defaults to True) | If set, prints generated summarizations.
 
 ## Citation

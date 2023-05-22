@@ -14,12 +14,13 @@
 # limitations under the License.
 import logging
 from multiprocessing import Process
-from typing import Callable, Dict, List
+import time
+from typing import Callable, Dict, List, Tuple
 
 import numpy as np
 import pandas as pd
 
-from . import generator
+from generator import Generator
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -43,9 +44,9 @@ class Augmentor(object):
             the sequence to be generated. Between 0 and infinity.
         max_length (:obj:`int`, `optional`, defaults to None): The max length of 
             the sequence to be generated. Between min_length and infinity. 
-        num_samples (:obj:`int`, `optional`, defaults to 100): Number of 
+        num_samples (:obj:`int`, `optional`, defaults to 20): Number of 
             samples to pull from dataframe with specific feature to use in 
-            generating new sample with Abstract Summarization.
+            generating new sample with Generative Summarization.
         threshold (:obj:`int`, `optional`, defaults to mean count for all 
             classifier values): Maximum ceiling for each classifier value, 
             normally the under-sample max.
@@ -53,8 +54,12 @@ class Augmentor(object):
             calls for Generative Summarization in array which is then passed to 
             run_cpu_tasks_in_parallel to allow for increasing performance 
             through multiprocessing.
-        prompt (:obj:`string`, `optional`, defaults to "Create 5 unique, 
-            informally written sentences similar to the ones listed here:")
+        prompt (:obj:`string`, `optional`, defaults to "Create SUMMARY_COUNT 
+            unique, informally written sentences similar to the ones listed 
+            here:") The prompt to use for the generative summarization. If you 
+            change the prompt, please be sure to keep the SUMMARY_COUNT string 
+            in it somewhere as this is expected and replaced based on the 
+            append count calculated for said classifier value.
         llm (:obj:`string`, `optional`, defaults to 'chatgpt'): The 
             generative LLM to use for summarization.
         model (:obj:`string`, `optional`, defaults to 'gpt-3.5-turbo'): The 
@@ -73,11 +78,11 @@ class Augmentor(object):
             classifier_values=None,
             min_length=None,
             max_length=None,
-            num_samples=100,
+            num_samples=20,
             threshold=None,
             multiproc=True,
-            prompt="Create 5 unique, informally written sentences similar \
-                to the ones listed here:",
+            prompt="Create SUMMARY_COUNT unique, informally written sentences \
+                similar to the ones listed here:",
             llm = 'chatgpt',
             model = 'gpt-3.5-turbo',
             temperature = 0,
@@ -88,6 +93,8 @@ class Augmentor(object):
         self.classifier = classifier
         self.classifier_values = self.get_classifier_values(
             df, classifier_values)
+        self.min_length = min_length
+        self.max_length = max_length
         self.num_samples = num_samples
         self.threshold = threshold
         self.multiproc = multiproc
@@ -98,7 +105,12 @@ class Augmentor(object):
         self.debug = debug
         self.append_index = 0
         self.df_append = None
-        self.generator = generator.Generator(llm=llm, model=model)
+        self.generator = Generator(llm=llm, model=model)
+        
+        # If threshold not specified, set to median count for all classifiers
+        # to prevent outliers from skewing results
+        if self.threshold is None:
+            self.threshold = int(self.df['intent'].value_counts().median())
         
         # Set min and max length for summarization if specified.Expects 
         # min_length to be set if max_length specified, however this doesn't 
@@ -106,10 +118,10 @@ class Augmentor(object):
         # based on sampled text 
         if min_length is not None:
             self.prompt = self.prompt.replace(
-                ":", f" with a min length of {min_length} words:")
+                ":", f" with a minimum length of {min_length} words:")
         if max_length is not None:
             self.prompt = self.prompt.replace(
-                ":", f" and a max length of {max_length} words:")
+                ":", f" and a maximum length of {max_length} words:")
         
     def get_classifier_values(
             self, 
@@ -146,11 +158,19 @@ class Augmentor(object):
         :param debug: Whether to log output
         :return: generative summarization text
         """
+        logger.info("Generating summarization...")
         prompt = self.prompt + "\n" + "\n".join(texts)
+        
+        # Set min and max word counts for summarization based on sampled 
+        # text if not specified in constructor
+        if self.min_length is None and self.max_length is None:
+            min_length, max_length = get_min_max_word_counts(texts)
+            self.prompt = self.prompt.replace(":", f" with a minimum length of \
+                {min_length} words and a maximum length of {max_length} words:")
+        
         output = self.generator.generate_summary(prompt)
-
         if self.debug:
-            logger.info("\nSummarized text: \n", output)
+            logger.info(f"\nSummarized text: \n{output}")
 
         return output
 
@@ -180,17 +200,17 @@ class Augmentor(object):
 
         for classifier_value in self.classifier_values:
             num_to_append = append_counts[classifier_value]
+            # Incrementally append based on value-specific append count
             for num in range(
                 self.append_index, 
                 self.append_index + num_to_append):
                 if self.multiproc:
                     tasks.append(
                         self.process_generative_summarization(
-                            classifier_value, num)
-                    )
+                            classifier_value, num_to_append, num))
                 else:
                     self.process_generative_summarization(
-                        classifier_value, num)
+                        classifier_value, num_to_append, num)
 
             # Updating index for insertion into shared appended dataframe to 
             # preserve indexing in multiprocessing situation
@@ -203,32 +223,39 @@ class Augmentor(object):
 
     def process_generative_summarization(
             self, 
-            classifier_value: str, 
-            num: int):
+            classifier_value: str,
+            num_to_append: int, 
+            num: int,
+            multiplier: int = 4):
         """
-        Samples a subset of rows (with replacement) from main dataframe where 
-        classifier is the specified value. The subset is then passed as a list 
-        to a generative summarizer to generate a new data entry for the append 
-        count, augmenting said dataframe with rows to essentially oversample 
-        underrepresented data. df_append is set as a class variable to 
-        accommodate that said dataframe may need to be shared among multiple 
-        processes.
+        Samples a subset of rows (with replacement if necessary) from main 
+        dataframe where classifier is the specified value. The subset is then 
+        passed as a list to a generative summarizer to generate a new data 
+        entry for the append count, augmenting said dataframe with rows to 
+        essentially oversample underrepresented data. df_append is set as a 
+        class variable to accommodate that said dataframe may need to be 
+        shared among multiple processes.
         
         :param classifier_value: Classifier value to filter on
+        :param num_to_append: Number of rows to append for given classifier value
         :param num: Count of place in gen_sum_augment loop
+        :multiplier: Multiplier used to decide if replacement is necessary
         """
+        # Replacing SUMMARY_COUNT with number of texts to summarize
+        self.prompt = self.prompt.replace("SUMMARY_COUNT", str(num_to_append))
         # Pulling rows for specified feature
         df_value = self.df[self.df[self.classifier] == classifier_value]
-        df_sample = df_value.sample(self.num_samples, replace=True)
+        # Only use replacement if there is a substantial sample count
+        replace = True if len(df_value) < self.num_samples * multiplier else False
+        df_sample = df_value.sample(self.num_samples, replace=replace)
         text_to_summarize = df_sample[:self.num_samples][self.text_column].tolist()
-        new_text = self.get_generative_summarization(text_to_summarize)
+        new_texts = self.get_generative_summarization(text_to_summarize)
         
-        # Only add new text samples that aren't empty strings (ie error)
-        if len(new_text) > 0:
+        # Breaking up summarization into separate sentences and appending each
+        for new_text in new_texts.split('\n'):
             self.df_append.at[num, self.text_column] = new_text
             self.df_append.at[num, self.classifier] = classifier_value
-        else:
-            pass
+            self.df_append.at[num, 'augmented'] = 1
 
     def get_value_counts(self, df: pd.DataFrame) -> Dict[str, int]:
         """
@@ -254,7 +281,6 @@ class Augmentor(object):
         """
         append_counts = {}
         value_counts = self.get_value_counts(df)
-
         for value in self.classifier_values:
             if value_counts[value] >= self.threshold:
                 count = 0
@@ -280,15 +306,30 @@ def run_cpu_tasks_in_parallel(tasks: List[Callable]):
         running_task.join()
 
 
+def get_min_max_word_counts(sents: List[str]) -> Tuple[int, int]:
+    """
+    Gets min and max word counts from list of sentences
+    
+    :param sents: List of sentences to get min/max word counts from
+    :return: Tuple of min and max word counts
+    """
+    min_word_count = len(min(sents).split(' '))
+    max_word_count = len(max(sents).split(' '))
+    
+    return min_word_count, max_word_count
+
+
 def main():
     # Sample usage
+    start = time.time()
     csv = 'path_to_csv'
     df = pd.read_csv(csv)
-    augmentor = Augmentor(df, text_column='text')
+    augmentor = Augmentor(df, text_column='text', classifier='intent')
     df_augmented = augmentor.gen_sum_augment()
     df_augmented.to_csv(csv.replace(
         '.csv', '-augmented.csv'), encoding='utf-8', index=False)
-
+    logger.info(f"Runtime: {(time.time() - start)/60} minutes")
+    
 
 if __name__ == "__main__":
     main()
