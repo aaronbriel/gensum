@@ -50,10 +50,6 @@ class Augmentor(object):
         threshold (:obj:`int`, `optional`, defaults to mean count for all 
             classifier values): Maximum ceiling for each classifier value, 
             normally the under-sample max.
-        multiproc (:obj:`bool`, `optional`, defaults to True): If set, stores 
-            calls for Generative Summarization in array which is then passed to 
-            run_cpu_tasks_in_parallel to allow for increasing performance 
-            through multiprocessing.
         prompt (:obj:`string`, `optional`, defaults to "Create SUMMARY_COUNT 
             unique, informally written sentences similar to the ones listed 
             here:") The prompt to use for the generative summarization. If you 
@@ -181,22 +177,16 @@ class Augmentor(object):
         of rows. Initializes all feature values of said array to 0 to 
         accommodate future one-hot encoding of features. Loops over each 
         feature then executes loop to number of rows needed to be appended for
-        oversampling to reach needed amount for given feature. If multiproc is 
-        set, calls to process_generative_summarization are stored in a tasks 
-        array, which is then passed to a function that allows multiprocessing 
-        of said summarizations to vastly reduce runtime.
+        oversampling to reach needed amount for given feature.
         
         :return: Dataframe appended with augmented samples to make 
             underrepresented features match the count of the majority features.
         """
-        append_counts = self.get_append_counts(self.df)
+        append_counts = self.get_append_counts()
         # Create append dataframe with length of all rows to be appended
         self.df_append = pd.DataFrame(
             index=np.arange(sum(append_counts.values())), 
             columns=self.df.columns)
-
-        # Creating array of tasks for multiprocessing
-        tasks = []
 
         for classifier_value in self.classifier_values:
             num_to_append = append_counts[classifier_value]
@@ -204,21 +194,16 @@ class Augmentor(object):
             for num in range(
                 self.append_index, 
                 self.append_index + num_to_append):
-                if self.multiproc:
-                    tasks.append(
-                        self.process_generative_summarization(
-                            classifier_value, num_to_append, num))
-                else:
-                    self.process_generative_summarization(
-                        classifier_value, num_to_append, num)
+                self.process_generative_summarization(
+                    classifier_value, num_to_append, num)
 
             # Updating index for insertion into shared appended dataframe to 
             # preserve indexing in multiprocessing situation
             self.append_index += num_to_append
 
-        if self.multiproc:
-            run_cpu_tasks_in_parallel(tasks)
-
+        if len(self.df_append) == 0:
+            logger.warning("No rows to append, returning empty DataFrame.")
+            
         return self.df_append
 
     def process_generative_summarization(
@@ -232,9 +217,7 @@ class Augmentor(object):
         dataframe where classifier is the specified value. The subset is then 
         passed as a list to a generative summarizer to generate a new data 
         entry for the append count, augmenting said dataframe with rows to 
-        essentially oversample underrepresented data. df_append is set as a 
-        class variable to accommodate that said dataframe may need to be 
-        shared among multiple processes.
+        essentially oversample underrepresented data.
         
         :param classifier_value: Classifier value to filter on
         :param num_to_append: Number of rows to append for given classifier value
@@ -257,30 +240,28 @@ class Augmentor(object):
             self.df_append.at[num, self.classifier] = classifier_value
             self.df_append.at[num, 'augmented'] = 1
 
-    def get_value_counts(self, df: pd.DataFrame) -> Dict[str, int]:
+    def get_value_counts(self) -> Dict[str, int]:
         """
         Gets dictionary of classifier values and their respective counts
-        
-        :param df: Dataframe with classifier column to pull values from
+
         :return: Dictionary containing count of each unique classifier value
         """
         shape_array = {}
         for value in self.classifier_values:
-            shape_array[value] = len(df[df[self.classifier] == value])
+            shape_array[value] = len(
+                self.df[self.df[self.classifier] == value])
             
         return shape_array
 
-    def get_append_counts(self, df: pd.DataFrame) -> Dict[str, int]:
+    def get_append_counts(self) -> Dict[str, int]:
         """
         Gets number of rows that need to be augmented for each classifier value 
         up to threshold
-        
-        :param df: Dataframe with one hot encoded features to pull 
-            categories/features from
+ 
         :return: Dictionary containing number to append for each category
         """
         append_counts = {}
-        value_counts = self.get_value_counts(df)
+        value_counts = self.get_value_counts()
         for value in self.classifier_values:
             if value_counts[value] >= self.threshold:
                 count = 0
@@ -290,20 +271,6 @@ class Augmentor(object):
             append_counts[value] = count
 
         return append_counts
-
-
-def run_cpu_tasks_in_parallel(tasks: List[Callable]):
-    """
-    Takes array of tasks, loops over them to start each process, then loops 
-    over each to join them
-    
-    :param tasks: Array of tasks or function calls to start and join
-    """
-    running_tasks = [Process(target=task) for task in tasks]
-    for running_task in running_tasks:
-        running_task.start()
-    for running_task in running_tasks:
-        running_task.join()
 
 
 def get_min_max_word_counts(sents: List[str]) -> Tuple[int, int]:
