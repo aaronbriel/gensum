@@ -238,7 +238,6 @@ class Augmentor(object):
         for new_text in new_texts.split('\n'):
             self.df_append.at[num, self.text_column] = new_text
             self.df_append.at[num, self.classifier] = classifier_value
-            self.df_append.at[num, 'augmented'] = 1
 
     def get_value_counts(self) -> Dict[str, int]:
         """

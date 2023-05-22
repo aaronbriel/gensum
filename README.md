@@ -19,12 +19,11 @@ Singular summarization calls are also possible.
 ## Algorithm
 1. Append counts or the number of rows to add for each classifier value are first calculated with a ceiling threshold. Namely, if a given classifier value has 1000 rows and the ceiling is 100, its append count will be 0.
 
-2. For each classifier value it then completes a loop from an append index range to the append count specified for that given value. The append index is stored to allow for multi processing.
+2. For each classifier value it then completes a loop from an append index range to the append count specified for that given value.
 
 3. Generative summarization is completed for a specified size subset of all rows that uniquely have the given classifier value. 
-If multiprocessing is set, the call to generative summarization is stored in a task array later passed to a sub-routine that runs the calls in parallel using the [multiprocessing](https://docs.python.org/2/library/multiprocessing.html) library, vastly reducing runtime.
 
-4. Each summarization is appended to a new dataframe with the respective classifier value.
+4. Each summarization is parsed into sentences and appended to a new dataframe with the respective classifier value.
 
 ## Installation
 ### Via pip
