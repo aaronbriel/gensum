@@ -76,7 +76,6 @@ NOTE: The output dataframe contains only the augmented rows.
 | max_length | (:obj:`int`, `optional`, defaults to 50) | The max length of the sequence to be generated. Between min_length and infinity. Default to 50.
 | num_samples | (:obj:`int`, `optional`, defaults to 20) | Number of samples to pull from dataframe with specific feature to use in generating new sample with Generative Summarization.
 | threshold | (:obj:`int`, `optional`, defaults to mean count for all classifier values) | Maximum ceiling for each feature, normally the under-sample max.
-| multiproc | (:obj:`bool`, `optional`, defaults to True) | If set, stores calls to generative summarization in array which is then passed to run_cpu_tasks_in_parallel to allow for increasing performance through multiprocessing.
 | prompt  | (:obj:`string`, `optional`, defaults to "Create SUMMARY_COUNT unique, informally written sentences similar to the ones listed here:") | The prompt to use for the generative summarization. If you change the prompt, please be sure to keep the SUMMARY_COUNT string in it somewhere as this is expected and replaced based on the append count calculated for said classifier value.
 | llm | (:obj:`string`, `optional`, defaults to 'chatgpt') | The generative LLM to use for summarization.
 | model | (:obj:`string`, `optional`, defaults to 'gpt-3.5-turbo') | The specific model to use.
