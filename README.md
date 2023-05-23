@@ -11,10 +11,7 @@ A technique such as SMOTE can be effective for oversampling, although the proble
 
 gensum is an NLP library based on [absum](https://github.com/aaronbriel/absum) that uses generative summarization to perform data augmentation in order to oversample under-represented classes in datasets. Recent advancements in generative models such as ChatGPT make this approach optimal in achieving realistic *but unique* data for the augmentation process.
 
-It uses [ChatGPT](https://openai.com/blog/chatgpt) by default, but is designed in a modular way to allow you to use any large language models capable of generative summarization. 
-gensum is format agnostic, expecting only a dataframe containing text and all features. It also uses multiprocessing to achieve optimal performance.
-
-Singular summarization calls are also possible. 
+It uses [ChatGPT](https://openai.com/blog/chatgpt) by default, but is designed in a modular way to allow you to use any large language models capable of generative summarization. `gensum` is format agnostic, expecting only a DataFrame containing a text and classifier column. 
 
 ## Algorithm
 1. Append counts or the number of rows to add for each classifier value are first calculated with a ceiling threshold. Namely, if a given classifier value has 1000 rows and the ceiling is 100, its append count will be 0.
