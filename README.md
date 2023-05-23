@@ -8,7 +8,7 @@
 Imbalanced class distribution remains a classic common problem in ML. Undersampling combined with oversampling are two methods of attempting to address this issue. 
 Techniques such as SMOTE and MLSMOTE have been proposed, but the high dimensional nature of numerical vectors created from text makes other data augmentation approaches preferable.
 
-gensum is an NLP library based on [absum](https://github.com/aaronbriel/absum) that uses generative summarization to perform data augmentation in order to oversample under-represented classes in datasets. Recent advancements in generative models such as ChatGPT make this approach optimal in achieving realistic *but unique* data for the augmentation process.
+gensum is an NLP library based on [absum](https://github.com/aaronbriel/absum) that uses generative summarization to perform data augmentation by oversampling under-represented classes in text classification datasets. Recent advancements in generative models such as ChatGPT make this approach optimal in achieving realistic *but unique* data for the augmentation process.
 
 It uses [ChatGPT](https://openai.com/blog/chatgpt) by default, but is designed in a modular way to allow you to use any large language models capable of generative summarization. `gensum` is format agnostic, expecting only a DataFrame containing a text and classifier column. 
 
@@ -34,7 +34,7 @@ pip install git+https://github.com/aaronbriel/gensum.git
 
 ## Usage
 
-gensum expects a DataFrame containing a text column which defaults to 'text', and another classifier column which defaults to 'classifier'. All available parameters are detailed in the Parameters section below.
+gensum expects a DataFrame containing a text column which defaults to 'text', and another classifier column which defaults to 'classifier'. All available parameters are detailed in the Parameters section below. Be sure to set the `OPENAI_API_KEY` environmental parameter prior to running the code.
 
 ```bash
 import pandas as pd
