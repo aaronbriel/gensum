@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "gensum"
-version = "0.1.2"
+version = "0.1.3"
 authors = ["Aaron Briel <aaronbriel@gmail.com>"]
 description = "Generative Summarization for Data Augmentation"
 readme = "README.md"
