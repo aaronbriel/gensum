@@ -173,15 +173,10 @@ class Augmentor(object):
 
     def gen_sum_augment(self) -> pd.DataFrame:
         """
-        Gets append counts (number of rows to append) for each feature and 
-        initializes main classes' dataframe to be appended to that number
-        of rows. Initializes all feature values of said array to 0 to 
-        accommodate future one-hot encoding of features. Loops over each 
-        feature then executes loop to number of rows needed to be appended for
-        oversampling to reach needed amount for given feature.
+        Gets append counts for each classifier value, generates new samples,
+        and appends them to a DataFrame.
         
-        :return: Dataframe appended with augmented samples to make 
-            underrepresented features match the count of the majority features.
+        :return: Dataframe appended with augmented samples
         """        
         df_augment = pd.DataFrame()
         append_counts = self.get_append_counts()
@@ -366,7 +361,7 @@ def get_min_max_word_counts(sents: List[str]) -> Tuple[int, int]:
 def main():
     # Sample usage
     start = time.time()
-    csv = 'data/intent_sample_dataset.csv'
+    csv = 'path_to_csv'
     df = pd.read_csv(csv)
     augmentor = Augmentor(df, text_column='text', classifier='intent')
     df_augmented = augmentor.gen_sum_augment()
