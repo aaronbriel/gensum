@@ -100,8 +100,8 @@ class Augmentor(object):
         self.model = model
         self.temperature = temperature
         self.debug = debug
-        self.append_index = 0
-        self.df_append = None
+        # self.append_index = 0
+        # self.df_append = None
         self.generator = Generator(llm=llm, model=model)
         
         # If threshold not specified, set to median count for all classifiers
@@ -182,63 +182,62 @@ class Augmentor(object):
         
         :return: Dataframe appended with augmented samples to make 
             underrepresented features match the count of the majority features.
-        """
+        """        
+        df_augment = pd.DataFrame()
         append_counts = self.get_append_counts()
-        # Create append dataframe with length of all rows to be appended
-        self.df_append = pd.DataFrame(
-            index=np.arange(sum(append_counts.values())), 
-            columns=self.df.columns)
 
         for classifier_value in self.classifier_values:
             num_to_append = append_counts[classifier_value]
-            # Incrementally append based on value-specific append count
-            for num in range(
-                self.append_index, 
-                self.append_index + num_to_append):
-                self.process_generative_summarization(
-                    classifier_value, num_to_append, num)
+            if num_to_append > 0:
+                logger.info(f"Appending {num_to_append} rows for " + 
+                            f"'{classifier_value}' classifier value")
+                append_data = self.process_generative_summarization(
+                    classifier_value, num_to_append)
+                df_append = pd.DataFrame(append_data)
+                df_augment = pd.concat(
+                    [df_augment, df_append], ignore_index=True)
+            else:
+                logger.info(f"No rows to append for {classifier_value}")
 
-            # Updating index for insertion into shared appended dataframe to 
-            # preserve indexing in multiprocessing situation
-            self.append_index += num_to_append
-
-        if len(self.df_append) == 0:
+        if len(df_augment) == 0:
             logger.warning("No rows to append, returning empty DataFrame.")
             
-        return self.df_append
+        return df_augment
 
     def process_generative_summarization(
             self, 
             classifier_value: str,
             num_to_append: int, 
-            num: int,
-            multiplier: int = 4):
+            multiplier: int = 4) -> List[Dict[str, str]]:
         """
         Samples a subset of rows (with replacement if necessary) from main 
         dataframe where classifier is the specified value. The subset is then 
         passed as a list to a generative summarizer to generate a new data 
-        entry for the append count, augmenting said dataframe with rows to 
-        essentially oversample underrepresented data.
+        entry for the append count, augmenting dict to oversample 
+        underrepresented data.
         
         :param classifier_value: Classifier value to filter on
         :param num_to_append: Number of rows to append for given classifier value
-        :param num: Count of place in gen_sum_augment loop
         :multiplier: Multiplier used to decide if replacement is necessary
         """
+        append_data = []
+        
         # Replacing SUMMARY_COUNT with number of texts to summarize
         self.prompt = self.prompt.replace("SUMMARY_COUNT", str(num_to_append))
-        # Pulling rows for specified feature
         df_value = self.df[self.df[self.classifier] == classifier_value]
         # Only use replacement if there is a substantial sample count
         replace = True if len(df_value) < self.num_samples * multiplier else False
+        
         df_sample = df_value.sample(self.num_samples, replace=replace)
         text_to_summarize = df_sample[:self.num_samples][self.text_column].tolist()
         new_texts = self.get_generative_summarization(text_to_summarize)
         
-        # Breaking up summarization into separate sentences and appending each
-        for new_text in new_texts.split('\n'):
-            self.df_append.at[num, self.text_column] = new_text
-            self.df_append.at[num, self.classifier] = classifier_value
+        for text in new_texts.split("\n"):
+            append_data.append(
+                {self.text_column: text, 
+                 self.classifier: classifier_value})
+            
+        return append_data
 
     def get_value_counts(self) -> Dict[str, int]:
         """
@@ -367,13 +366,13 @@ def get_min_max_word_counts(sents: List[str]) -> Tuple[int, int]:
 def main():
     # Sample usage
     start = time.time()
-    csv = 'path_to_csv'
+    csv = 'data/intent_sample_dataset.csv'
     df = pd.read_csv(csv)
     augmentor = Augmentor(df, text_column='text', classifier='intent')
     df_augmented = augmentor.gen_sum_augment()
     df_augmented.to_csv(csv.replace(
         '.csv', '-augmented.csv'), encoding='utf-8', index=False)
-    logger.info(f"Runtime: {(time.time() - start)/60} minutes")
+    logger.info(f"Runtime: {time.time() - start} seconds")
     
 
 if __name__ == "__main__":
