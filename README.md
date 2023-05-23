@@ -5,22 +5,12 @@
 ![Python 3.10](https://img.shields.io/badge/python-3.6%20%7C%203.7-green.svg)
 
 ## Introduction
-Imbalanced class distribution is a common problem in ML. Undersampling combined with oversampling are two methods of addressing this issue. 
-A technique such as SMOTE can be effective for oversampling, although the problem becomes a bit more difficult with multilabel datasets. 
-[MLSMOTE](https://www.sciencedirect.com/science/article/abs/pii/S0950705115002737) has been proposed, but the high dimensional nature of numerical vectors created from text can sometimes make other forms of data augmentation more appealing.
+Imbalanced class distribution remains a classic common problem in ML. Undersampling combined with oversampling are two methods of attempting to address this issue. 
+Techniques such as SMOTE and MLSMOTE have been proposed, but the high dimensional nature of numerical vectors created from text makes other data augmentation approaches preferable.
 
 gensum is an NLP library based on [absum](https://github.com/aaronbriel/absum) that uses generative summarization to perform data augmentation in order to oversample under-represented classes in datasets. Recent advancements in generative models such as ChatGPT make this approach optimal in achieving realistic *but unique* data for the augmentation process.
 
 It uses [ChatGPT](https://openai.com/blog/chatgpt) by default, but is designed in a modular way to allow you to use any large language models capable of generative summarization. `gensum` is format agnostic, expecting only a DataFrame containing a text and classifier column. 
-
-## Algorithm
-1. Append counts or the number of rows to add for each classifier value are first calculated with a ceiling threshold. Namely, if a given classifier value has 1000 rows and the ceiling is 100, its append count will be 0.
-
-2. For each classifier value it then completes a loop from an append index range to the append count specified for that given value.
-
-3. Generative summarization is completed for a specified size subset of all rows that uniquely have the given classifier value. 
-
-4. Each summarization is parsed into sentences and appended to a new dataframe with the respective classifier value.
 
 ## Installation
 ### Via pip
